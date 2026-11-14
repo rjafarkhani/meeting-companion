@@ -1,0 +1,46 @@
+{
+  "name": "meeting-companion",
+  "productName": "Meeting Companion",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "A consent-first personal meeting copilot for Windows.",
+  "main": "dist-electron/main.cjs",
+  "author": "Meeting Companion",
+  "scripts": {
+    "build": "tsc --noEmit && vite build && node scripts/build-electron.mjs",
+    "start": "node scripts/start.mjs",
+    "dev": "npm run build && node scripts/start.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "test:app": "node scripts/smoke.mjs",
+    "package": "npm run build && electron-builder --win zip --x64"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/ws": "^8.5.0",
+    "@vitejs/plugin-react": "latest",
+    "electron": "latest",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.28.0",
+    "playwright-core": "latest",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vite": "latest"
+  },
+  "build": {
+    "appId": "com.meetingcompanion.desktop",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
+    "asar": true,
+    "win": { "target": "zip", "signAndEditExecutable": false },
+    "artifactName": "Meeting-Companion-${version}-${arch}.${ext}"
+  }
+}

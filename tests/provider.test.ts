@@ -58,6 +58,7 @@ test('speaker names and self marker reach insights while cards retain validated 
     const payload = JSON.parse(String(options.body)), input = JSON.parse(payload.input); inputs.push(input);
     return new Response(JSON.stringify({ output: [{ content: [{ type: 'output_text', text: JSON.stringify({ cards: [
       { category: 'question', title: 'Ask about the budget', body: 'Clarify the latency target.', detail: 'Related to this discussion.', triggerId: input.transcript[0].id },
+      { category: 'answer', title: 'The target is not established', question: 'What is the target?', body: 'The meeting has not established a target yet. Ask for an end-to-end latency budget.', detail: 'Do not infer a number from preparation alone.', triggerId: input.transcript[0].id, priority: 'normal' },
       { category: 'question', title: 'Wrong trigger', body: 'Should be rejected.', triggerId: 'invented' },
     ] }) }] }] }));
   });
@@ -79,6 +80,8 @@ test('speaker names and self marker reach insights while cards retain validated 
     });
     assert.equal(inputs[0].transcript[0].speaker, 'Ramya (you)');
     const cards = events.find(e => e.type === 'insights'); assert.ok(cards?.type === 'insights');
-    assert.equal(cards.items.length, 1); assert.equal(cards.items[0].triggerId, inputs[0].transcript[0].id);
+    assert.equal(cards.items.length, 2); assert.equal(cards.items[0].triggerId, inputs[0].transcript[0].id);
+    assert.equal(cards.items[0].category, 'answer'); assert.equal(cards.items[0].priority, 'high');
+    assert.equal(cards.items[0].question, 'What is the target?');
   } finally { service.stop(); server.clients.forEach(c => c.terminate()); await new Promise<void>(r => server.close(() => r())); }
 });

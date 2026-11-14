@@ -1,4 +1,4 @@
-export const categories = ['background', 'insight', 'question', 'terminology', 'risk', 'evidence'] as const;
+export const categories = ['answer', 'solution', 'background', 'insight', 'question', 'terminology', 'risk', 'evidence'] as const;
 export type Category = typeof categories[number];
 export type AudioSource = 'microphone' | 'system' | 'both';
 export type RunState = 'idle' | 'connecting' | 'listening' | 'paused' | 'ended';
@@ -25,6 +25,7 @@ export type SpeakerProfiles = Record<string, SpeakerProfile>;
 export interface Citation { title: string; url: string }
 export interface Insight {
   id: string; category: Category; title: string; body: string; detail: string;
+  question?: string;
   triggerId: string; at: number; priority: 'normal' | 'high';
   provenance: 'demo' | 'inference' | 'retrieved'; citations: Citation[];
   pinned?: boolean;

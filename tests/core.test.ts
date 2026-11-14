@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { demoArtifact, demoMoment } from '../src/demo';
-import { exportMarkdown, parseInsights, safeUrl, validateSettings } from '../src/core';
+import { exportMarkdown, insightKey, parseInsights, safeUrl, sortInsights, validateSettings } from '../src/core';
 import { defaultPrep, defaultSettings } from '../src/shared';
 import { TurnSegmenter } from '../src/turns';
 
@@ -27,6 +27,34 @@ test('insights require a real transcript id and cannot assert retrieved provenan
 test('demo recap never leaks future decisions or owners', () => {
   for (let n = 0; n < 7; n++) { assert.deepEqual(demoArtifact(n).decisions, []); assert.deepEqual(demoArtifact(n).actions, []); }
   assert.equal(demoArtifact(7).decisions.length, 1); assert.equal(demoArtifact(7).actions.length, 2);
+});
+
+test('suggested answers and solutions lead newer general insights and retain question context', () => {
+  const response = demoMoment(3).cards[0], solution = demoMoment(2).cards[0], background = demoMoment(0).cards[0];
+  const incoming = [{ ...background, at: 999, pinned: true }, solution, response];
+  const original = [...incoming];
+  const sorted = sortInsights(incoming);
+  assert.deepEqual(sorted.map(c => c.category), ['answer', 'solution', 'background']);
+  assert.deepEqual(incoming, original);
+  const markdown = exportMarkdown(defaultPrep, [], incoming, null, false);
+  assert.ok(markdown.indexOf('### answer:') < markdown.indexOf('### solution:'));
+  assert.ok(markdown.indexOf('### solution:') < markdown.indexOf('### background:'));
+  assert.ok(markdown.includes(`Question: ${response.question}`));
+});
+
+test('response parsing requires a real trigger, an asked question and supporting details', () => {
+  const base = { category: 'answer', title: 'A direct answer', body: 'A useful short response.', detail: 'Assumptions and practical next steps.', question: 'How could we handle this?', triggerId: 'real', priority: 'normal' };
+  const cards = parseInsights({ cards: [base, { ...base, category: 'solution', triggerId: 'invented' }, { ...base, question: '' }, { ...base, detail: '' }] }, new Set(['real']), 1);
+  assert.equal(cards.length, 1); assert.equal(cards[0].priority, 'high'); assert.equal(cards[0].question, base.question);
+  assert.equal(cards[0].provenance, 'inference'); assert.deepEqual(cards[0].citations, []);
+  assert.deepEqual(parseInsights({ cards: [null, { ...base, question: 123 }] }, new Set(['real']), 1), []);
+});
+
+test('answers to different questions are not lost merely because their titles match', () => {
+  const card = demoMoment(3).cards[0];
+  assert.notEqual(insightKey(card), insightKey({ ...card, triggerId: 'another-question-turn' }));
+  assert.notEqual(insightKey(card), insightKey({ ...card, question: 'How do we recover?' }));
+  assert.equal(insightKey(card), insightKey({ ...card, title: 'A reworded title' }));
 });
 test('export labels scripted data and excludes unfinished speech', () => {
   const moment = demoMoment(0);

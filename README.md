@@ -4,7 +4,7 @@ A Windows-first personal meeting copilot. The desktop app has a polished live wo
 
 ## Run the built app
 
-Double-click **Start Companion.cmd** in this folder. It prefers the updated build under `release/speaker-update/win-unpacked/`, leaving an already-open older build untouched. The updated ZIP is `release/speaker-update/Meeting-Companion-0.2.0-x64.zip`. If you downloaded the ZIP, extract the entire ZIP and launch **Meeting Companion.exe** from the extracted folder. The ZIP build is unsigned; it is a personal development preview.
+Double-click **Start Companion.cmd** in this folder. It prefers the updated build under `release/answer-update/win-unpacked/`, leaving an already-open older build untouched. The updated ZIP is `release/answer-update/Meeting-Companion-0.3.0-x64.zip`. If you downloaded the ZIP, extract the entire ZIP and launch **Meeting Companion.exe** from the extracted folder. The ZIP build is unsigned; it is a personal development preview.
 
 The app starts idle in **Demo** mode. Click **Run demo** for a fictional technical architecture review. It never opens an audio device or calls a provider. **Next moment** advances the scenario; pause/resume, category filters, pin/dismiss, transcript context, and recap all work. The recap includes only demo moments already played. The fixed architecture sketch is labeled as an illustrative reference, not a generated meeting diagram.
 
@@ -20,6 +20,14 @@ The app starts idle in **Demo** mode. Click **Run demo** for a fictional technic
 
 If a model is unavailable to your account, the app reports the provider error. Deepgram transcription uses Nova-3. The editable OpenAI defaults are `gpt-live-transcribe` for OpenAI-only transcription and `gpt-4.1-mini` for insights. No credentials are bundled. Live mode does not silently fall back to simulated content.
 
+## Answers first (v0.3)
+
+The primary insight task is now proposing direct answers to substantive questions asked in the conversation. **Suggested answer** cards sort first; **Possible solution** cards come next, ahead of other insight types, newest first within each kind. They show the question, a short response in larger text, and a clickable summary that expands supporting reasoning, assumptions, practical steps, and tradeoffs. Details arrive with the insight, so expanding them adds no API request. Responses remain AI suggestions, not verified facts or agreed decisions.
+
+**Answers** and **Solutions** filters let you focus on these cards. Quiet mode keeps them visible. Search includes the question text. The same ranking and question context appear in Markdown exports. Suggested follow-up questions retain their separate **Question** category.
+
+Speaker filtering and held results still apply. Incoming answers wait behind **Load new** while reviewing; the button flags pending answers/solutions. A shortcut reveals responses from other speakers, so an answer to a previous speaker's question remains easy to find after the conversation moves on. Opening a response holds the current view. The demo includes an outbox solution and an outage-recovery answer.
+
 ## Speakers and focused insights
 
 The app now separates voices from one microphone into **Speaker 1**, **Speaker 2**, and subsequent labels. Click a speaker to hold and review their related insights, paged two at a time. **Load N new** refreshes results on demand; **Follow latest speaker** restores automatic selection. **Edit speaker** lets you rename a voice, mark **This is me**, or match a duplicate/resumed label to an existing person. Names and matches last for this session. See [setup, behavior, limitations, and provider details](docs/SPEAKERS.md).
@@ -31,7 +39,7 @@ The app now separates voices from one microphone into **Speaker 1**, **Speaker 2
 - Microphone input and Windows system loopback, individually or mixed. Screen video requested by Electron's display-capture mechanism is discarded locally; no video is analyzed, saved, or transmitted.
 - AudioWorklet: mono PCM16 at 24 kHz, 100 ms packets. Deepgram receives a continuous stream with provider speech detection and word-level speaker labels/timestamps. OpenAI-only mode retains RMS segmentation with 300 ms preroll, 700 ms silence boundary, and a five-second maximum turn.
 - Streaming partial/final transcript, linked context, search, auto-follow, and clear provisional text. Live diarization uses Deepgram; OpenAI-only speech remains labeled **Meeting audio**. Speaker IDs are separate from editable names. Provisional labels do not create permanent speakers.
-- Six insight categories, quiet mode, pin/dismiss, expandable reasoning, paced rolling-context requests, and resumed-session text context.
+- Eight insight categories, with answers and possible solutions first, quiet mode, pin/dismiss, expandable reasoning, paced rolling-context requests, and resumed-session text context.
 - Source checks using provider web search and actual returned URL annotations. AI cards without retrieval are explicitly **AI inference**.
 - Volatile prep context, recap drafts, decisions/actions/open questions, a fixed demo architecture diagram, and explicit Markdown exports.
 - Session-only API keys by default; optional Windows-backed encrypted storage for both providers. Ordinary preferences persist separately.

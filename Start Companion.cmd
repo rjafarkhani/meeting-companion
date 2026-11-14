@@ -2,6 +2,10 @@
 setlocal
 cd /d "%~dp0"
 set ELECTRON_RUN_AS_NODE=
+if exist "release\answer-update\win-unpacked\Meeting Companion.exe" (
+  start "" "release\answer-update\win-unpacked\Meeting Companion.exe"
+  exit /b
+)
 if exist "release\speaker-update\win-unpacked\Meeting Companion.exe" (
   start "" "release\speaker-update\win-unpacked\Meeting Companion.exe"
   exit /b

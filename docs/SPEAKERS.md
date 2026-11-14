@@ -35,3 +35,7 @@ Tests use local fake WebSocket servers and the real Electron demo, without recor
 - [Deepgram endpointing and interim results](https://developers.deepgram.com/docs/understand-endpointing-interim-results)
 - [Deepgram keep-alive](https://developers.deepgram.com/docs/audio-keep-alive)
 - [OpenAI realtime transcription](https://developers.openai.com/api/docs/guides/realtime-transcription)
+
+## Response priority (v0.3)
+
+Within each speaker or meeting-wide view, suggested answers rank first, followed by possible solutions, then other insights. The response shows the asked question and a brief summary; clicking it expands relevant supporting details while holding the review. Answer and solution filters, question-text search, quiet-mode visibility, and a shortcut to responses from other speakers support quick reading. New answers never interrupt a held snapshot; use Load new, which indicates pending response counts. Voices and transcription providers are unchanged by this refinement.

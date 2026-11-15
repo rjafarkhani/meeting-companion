@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { CompanionAPI, ServiceEvent } from '../src/shared';
 const api: CompanionAPI = {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
+  saveCredentials: (keys, persist) => ipcRenderer.invoke('credentials:save', keys, persist),
   saveSettings: (s, k, d) => ipcRenderer.invoke('settings:save', s, k, d),
   start: input => ipcRenderer.invoke('session:start', input),
   stop: () => ipcRenderer.invoke('session:stop'),

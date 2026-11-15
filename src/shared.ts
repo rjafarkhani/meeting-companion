@@ -10,7 +10,7 @@ export interface Settings {
 export const defaultSettings: Settings = {
   source: 'microphone', deviceId: '', model: 'gpt-4.1-mini', transcriptionModel: 'gpt-live-transcribe',
   transcriptionProvider: 'deepgram',
-  quiet: false, insightInterval: 4000, rememberKey: false,
+  quiet: false, insightInterval: 4000, rememberKey: true,
 };
 export interface Prep { title: string; role: string; objective: string; agenda: string; glossary: string }
 export const defaultPrep: Prep = {
@@ -22,6 +22,9 @@ export const defaultPrep: Prep = {
 export interface Transcript { id: string; speaker: string; speakerId?: string; speakerNumber?: number; text: string; at: number; final: boolean }
 export interface SpeakerProfile { name: string; isMe: boolean; aliasOf?: string }
 export type SpeakerProfiles = Record<string, SpeakerProfile>;
+export type CredentialProvider = 'openai' | 'deepgram';
+export interface CredentialStatus { secureStorage: boolean; protection: string; warning: string; saved: Record<CredentialProvider, boolean> }
+export interface AppConfiguration { settings: Settings; hasKey: boolean; hasDeepgramKey: boolean; credentials: CredentialStatus }
 export interface Citation { title: string; url: string }
 export interface Insight {
   id: string; category: Category; title: string; body: string; detail: string;
@@ -38,7 +41,8 @@ export type ServiceEvent =
   | { type: 'error'; message: string; fatal: boolean }
   | { type: 'activity'; message: string };
 export interface CompanionAPI {
-  loadSettings(): Promise<{ settings: Settings; hasKey: boolean; hasDeepgramKey: boolean }>;
+  loadSettings(): Promise<AppConfiguration>;
+  saveCredentials(keys: Partial<Record<CredentialProvider, string>>, persist: boolean): Promise<AppConfiguration>;
   saveSettings(settings: Settings, key?: string, deepgramKey?: string): Promise<void>;
   start(input: { consent: boolean; settings: Settings; prep: Prep; history: Transcript[]; speakers?: SpeakerProfiles }): Promise<void>;
   updateSpeakers(speakers: SpeakerProfiles): Promise<void>;

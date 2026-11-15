@@ -22,3 +22,5 @@ body{overflow:hidden}.app-shell{height:100vh;min-height:0}main{height:100vh;over
 .session-content>.page-heading{display:none}.session-content .workspace-grid{height:calc(100vh - 390px);min-height:430px}.speaker-actions .other-responses{width:auto;margin:0;padding:5px 9px;margin-left:auto}.speaker-actions{flex-wrap:wrap}.speaker-actions .text-link{white-space:nowrap}
 
 @media(max-height:780px){.session-content .speaker-panel-heading p,.session-content .panel-heading p{display:none}.session-content .panel-heading{padding:13px 16px 11px}.session-content .speaker-panel{padding-top:11px;padding-bottom:11px}.session-content .speaker-roster{padding-top:8px}.session-content .filters{padding-bottom:10px}}
+
+.key-submit{width:100%;justify-content:center;margin-top:8px}.credential-warning,.credential-error,.credential-status{font-size:11px;line-height:1.8;margin:12px 0;color:#6d7c69;overflow-wrap:anywhere}.credential-error{color:#a64538}.credential-warning{padding:10px 12px;background:#fff5e8;border:1px solid #eed7b4;border-radius:5px}

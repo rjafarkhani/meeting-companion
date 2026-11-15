@@ -29,7 +29,7 @@ flowchart LR
   RECAP --> EXPORT[User-selected Markdown export]
 ```
 
-`src/shared.ts`, `src/core.ts`, and `src/turns.ts` hold reusable contracts and logic. `src/audio.ts` is the browser/desktop capture adapter. `electron/transcription.ts` owns Deepgram/OpenAI transcription transports. `electron/provider.ts` contains structured insight requests, research parsing, and recap generation. `src/speakers.ts` resolves speaker identities/names and insight associations. `electron/main.ts` owns credentials, permission gating, network access, and filesystem export. React owns only the volatile presentation state.
+`src/shared.ts`, `src/core.ts`, and `src/turns.ts` hold reusable contracts and logic. `src/audio.ts` is the browser/desktop capture adapter. `electron/transcription.ts` owns Deepgram/OpenAI transcription transports. `electron/provider.ts` contains structured insight requests, research parsing, and recap generation. `src/speakers.ts` resolves speaker identities/names and insight associations. `electron/credentials.ts` owns protected credential persistence and migration. `electron/main.ts` owns credential IPC, permission gating, network access, and filesystem export. React owns only the volatile presentation state.
 
 The provider currently runs inside Electron's main process for a personal bring-your-own-key workflow. A shipped commercial service must move shared provider credentials and entitlement enforcement to an authenticated backend. Never distribute one company API key inside the desktop or iPhone app.
 
@@ -62,7 +62,7 @@ Insight generation is serialized with a configurable minimum interval; finalized
 - Raw audio: not written by application code.
 - Transcript, insight cards, prep, recap: memory until close/reset; no automatic meeting history.
 - Settings: ordinary app-data JSON, no meeting prep/transcript.
-- API keys (OpenAI and Deepgram): main-process memory by default, optionally Electron safeStorage encryption backed by Windows.
+- API keys (OpenAI and Deepgram): OS-protected encrypted storage by default outside source checkouts, main-process memory while in use, explicit session-only option, and restart recovery. See [credential design and security limits](CREDENTIALS.md).
 - Export: explicit save dialog and a Markdown file at the selected location.
 - Cloud: provider policies apply. `store: false` is set for Responses calls; no claim of zero retention or compliance certification.
 

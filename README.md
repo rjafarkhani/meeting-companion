@@ -4,13 +4,13 @@ A Windows-first personal meeting copilot. The desktop app has a polished live wo
 
 ## Run the built app
 
-Double-click **Start Companion.cmd** in this folder. It prefers the updated build under `release/answer-update/win-unpacked/`, leaving an already-open older build untouched. The updated ZIP is `release/answer-update/Meeting-Companion-0.3.0-x64.zip`. If you downloaded the ZIP, extract the entire ZIP and launch **Meeting Companion.exe** from the extracted folder. The ZIP build is unsigned; it is a personal development preview.
+The v0.4 build is `release/credential-update/win-unpacked/Meeting Companion.exe`, and its ZIP is `release/credential-update/Meeting-Companion-0.4.0-x64.zip`. This workspace's organization Device Guard policy blocked the new unsigned executable, so **Start Companion.cmd** retains the prior release until the new build has an approved signing or allow-listing path. The source build and real Windows encrypted-credential restart checks passed through the Electron development runtime. If you use an approved release ZIP, extract the entire ZIP and launch **Meeting Companion.exe** from the extracted folder.
 
 The app starts idle in **Demo** mode. Click **Run demo** for a fictional technical architecture review. It never opens an audio device or calls a provider. **Next moment** advances the scenario; pause/resume, category filters, pin/dismiss, transcript context, and recap all work. The recap includes only demo moments already played. The fixed architecture sketch is labeled as an illustrative reference, not a generated meeting diagram.
 
 ## Use live assistance
 
-1. Open **Settings**, add your OpenAI API key for insights/recaps and your Deepgram API key for speaker recognition, and save. Each provider bills its own usage. Deepgram is the default transcription service. OpenAI-only transcription remains available without speaker separation.
+1. Click **Start listening** in Live mode. If keys are missing, enter the requested OpenAI/Deepgram keys in **Add required API keys**, then choose **Save securely and continue**. You can also manage keys in Settings. Saved keys are restored automatically on later launches. Each provider bills its own usage. Deepgram is the default transcription service. OpenAI-only transcription remains available without speaker separation.
 2. Choose **Microphone**, **System audio**, or **Both sources**. Save. Microphone covers an in-room meeting or an external speakerphone. System audio captures all playback on the Windows default output, including Zoom/Teams when routed there. Both includes your microphone and remote participants; use headphones to reduce doubled speech.
 3. On a new session, choose **Live**. Add context under **Meeting prep**, then return to the workspace.
 4. Click **Start listening**. Inform participants and obtain the consent/permissions required for capture and cloud processing. Confirm the in-app acknowledgment. The app does not notify participants or independently verify their consent.
@@ -19,6 +19,10 @@ The app starts idle in **Demo** mode. Click **Run demo** for a fictional technic
 7. Under **Meeting recap**, generate a reviewable draft from the current finalized transcript. New finalized speech invalidates a live draft, preventing stale decisions from being presented as current. Export Markdown to a location you select.
 
 If a model is unavailable to your account, the app reports the provider error. Deepgram transcription uses Nova-3. The editable OpenAI defaults are `gpt-live-transcribe` for OpenAI-only transcription and `gpt-4.1-mini` for insights. No credentials are bundled. Live mode does not silently fall back to simulated content.
+
+## Protected API keys (v0.4)
+
+Missing-key prompts request only the providers required by your chosen action. Keys are saved by default with operating-system protection (Windows DPAPI, macOS Keychain, supported Linux keyrings) in private application data outside the source checkout. Unsafe Linux fallback encryption is refused. If protected storage is unavailable, choose session-only use or Cancel. Entering keys does not bypass capture consent. See [storage, migration, removal, and security limits](docs/CREDENTIALS.md).
 
 ## Answers first (v0.3)
 
@@ -42,7 +46,7 @@ The app now separates voices from one microphone into **Speaker 1**, **Speaker 2
 - Eight insight categories, with answers and possible solutions first, quiet mode, pin/dismiss, expandable reasoning, paced rolling-context requests, and resumed-session text context.
 - Source checks using provider web search and actual returned URL annotations. AI cards without retrieval are explicitly **AI inference**.
 - Volatile prep context, recap drafts, decisions/actions/open questions, a fixed demo architecture diagram, and explicit Markdown exports.
-- Session-only API keys by default; optional Windows-backed encrypted storage for both providers. Ordinary preferences persist separately.
+- OS-protected encrypted API keys by default, automatic restore across launches, and an explicit session-only option. Ordinary preferences persist separately.
 
 ## Privacy and limitations
 
@@ -50,7 +54,7 @@ The app does not write raw audio or automatically save transcripts/insights/meet
 
 Live audio is streamed to Deepgram when speaker recognition is selected, or to OpenAI for OpenAI-only transcription. Deepgram receives silence too, which affects usage costs. OpenAI receives names/self marker with transcript context. The insight pipeline sends recent finalized transcript and prep. Recap sends the current finalized transcript and prep. Source checks send the selected claim for provider web search. Responses requests use `store: false`; this does not promise zero provider retention. Provider account terms and data controls still apply.
 
-Settings and optionally encrypted API keys are stored in Electron's per-user app-data directory. Keys are never returned to the renderer after saving. No third-party analytics are installed. The renderer uses an in-memory Chromium partition; main-process Chromium runtime caches may still exist in the app-data directory.
+Settings and OS-encrypted API keys are stored separately in Electron's per-user app-data directory. Plaintext keys are never written. Keys are never returned to the renderer after saving. No third-party analytics are installed. The renderer uses an in-memory Chromium partition; main-process Chromium runtime caches may still exist in the app-data directory.
 
 Latency targets are design goals, not measured guarantees: roughly 1–2 seconds for partial captions and 2–5 seconds for initial insights when the network/provider permit. Final text depends on provider speech detection or client turn boundaries, and cited research can take longer. Quiet speakers, overlapping speech, device routing, network conditions, provider limits, and RMS thresholds affect results. There is no reconnect loop that secretly resumes capture after a disconnect.
 

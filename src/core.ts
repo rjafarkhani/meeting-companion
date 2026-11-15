@@ -6,7 +6,7 @@ export function validateSettings(value: unknown): Settings {
   if (!/^[a-zA-Z0-9._-]{1,100}$/.test(s.model) || !/^[a-zA-Z0-9._-]{1,100}$/.test(s.transcriptionModel)) throw new Error('Model names must be valid API model identifiers.');
   return { ...defaultSettings, source: s.source, deviceId: String(s.deviceId || '').slice(0, 500), model: s.model,
     transcriptionProvider: s.transcriptionProvider || defaultSettings.transcriptionProvider,
-    transcriptionModel: s.transcriptionModel, quiet: !!s.quiet, rememberKey: !!s.rememberKey,
+    transcriptionModel: s.transcriptionModel, quiet: !!s.quiet, rememberKey: s.rememberKey !== false,
     insightInterval: Math.max(2000, Math.min(15000, Number(s.insightInterval) || 4000)) };
 }
 export function safeUrl(value: string): boolean {

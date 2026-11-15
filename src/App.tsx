@@ -4,7 +4,7 @@ import { AudioCapture } from './audio';
 import { demoArtifact, demoMoment, moments } from './demo';
 import { exportMarkdown, formatTime, isResponse, sortInsights } from './core';
 import { meetingSpeakers, namedTranscript, relatedInsights, speakerId, upsertTranscript } from './speakers';
-import { categories, defaultPrep, defaultSettings, type Artifact, type Category, type Insight, type Prep, type RunState, type Settings, type SpeakerProfiles, type Transcript } from './shared';
+import { categories, defaultPrep, defaultSettings, type AppConfiguration, type Artifact, type Category, type CredentialProvider, type CredentialStatus, type Insight, type Prep, type RunState, type Settings, type SpeakerProfiles, type Transcript } from './shared';
 
 const meta: Record<Category, { label: string; icon: typeof BookOpen }> = {
   answer: { label: 'Suggested answer', icon: MessageCircle }, solution: { label: 'Possible solution', icon: Lightbulb },
@@ -24,6 +24,12 @@ export default function App() {
   const [hasDeepgramKey, setHasDeepgramKey] = useState(false);
   const [deepgramKeyInput, setDeepgramKeyInput] = useState('');
   const [clearDeepgramKey, setClearDeepgramKey] = useState(false);
+  const [credentialStatus, setCredentialStatus] = useState<CredentialStatus>({ secureStorage: false, protection: 'Checking system protection…', warning: '', saved: { openai: false, deepgram: false } });
+  const [keyPrompt, setKeyPrompt] = useState<CredentialProvider[] | null>(null);
+  const [promptKeys, setPromptKeys] = useState({ openai: '', deepgram: '' });
+  const [keyPromptError, setKeyPromptError] = useState('');
+  const [keysBusy, setKeysBusy] = useState(false);
+  const keyContinuation = useRef<(() => void) | null>(null);
   const [keyInput, setKeyInput] = useState('');
   const [clearKey, setClearKey] = useState(false);
   const [mode, setMode] = useState<'demo' | 'live'>('demo');
@@ -73,7 +79,7 @@ export default function App() {
   const hasContent = lines.length > 0;
 
   useEffect(() => {
-    window.companion.loadSettings().then(x => { setSettings(x.settings); setHasKey(x.hasKey); setHasDeepgramKey(x.hasDeepgramKey); }).catch(e => setError(errText(e)));
+    window.companion.loadSettings().then(x => { setSettings(x.settings); applyCredentialStatus(x); }).catch(e => setError(errText(e)));
     const unsubscribe = window.companion.onEvent(e => {
       if (!['connecting', 'listening'].includes(stateRef.current)) return;
       if (e.type === 'transcript' || e.type === 'transcript-batch') {
@@ -106,13 +112,13 @@ export default function App() {
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => { document.querySelector('main')?.scrollTo(0, 0); }, [view]);
   useEffect(() => {
-    if (!consentOpen && !resetOpen) return;
+    if (!consentOpen && !resetOpen && !keyPrompt) return;
     const previous = document.activeElement as HTMLElement | null;
     const modal = document.querySelector<HTMLElement>('[role="dialog"]');
     const selector = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]';
     modal?.querySelector<HTMLElement>(selector)?.focus();
     const trap = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setConsentOpen(false); setResetOpen(false); }
+      if (e.key === 'Escape') { if (keyPrompt) { if (!keysBusy) closeKeyPrompt(); } else { setConsentOpen(false); setResetOpen(false); } }
       if (e.key !== 'Tab') return;
       const targets = modal?.querySelectorAll<HTMLElement>(selector); if (!targets?.length) return;
       const first = targets[0], last = targets[targets.length - 1];
@@ -121,7 +127,32 @@ export default function App() {
     };
     document.addEventListener('keydown', trap);
     return () => { document.removeEventListener('keydown', trap); previous?.focus(); };
-  }, [consentOpen, resetOpen]);
+  }, [consentOpen, resetOpen, keyPrompt, keysBusy]);
+
+  function applyCredentialStatus(config: AppConfiguration) {
+    setHasKey(config.hasKey); setHasDeepgramKey(config.hasDeepgramKey); setCredentialStatus(config.credentials);
+  }
+  async function requireKeys(required: CredentialProvider[], continuation: () => void): Promise<boolean> {
+    const config = await window.companion.loadSettings(); applyCredentialStatus(config);
+    const missing = required.filter(provider => !(provider === 'openai' ? config.hasKey : config.hasDeepgramKey));
+    if (!missing.length) return true;
+    keyContinuation.current = continuation; setKeyPrompt(missing); setPromptKeys({ openai: '', deepgram: '' }); setKeyPromptError(''); return false;
+  }
+  function closeKeyPrompt() { keyContinuation.current = null; setKeyPrompt(null); setPromptKeys({ openai: '', deepgram: '' }); setKeyPromptError(''); }
+  async function savePromptKeys(persist: boolean) {
+    if (!keyPrompt || keysBusy) return;
+    setKeysBusy(true); setKeyPromptError('');
+    try {
+      const changes = Object.fromEntries(keyPrompt.map(provider => [provider, promptKeys[provider].trim()]));
+      if (Object.values(changes).some(value => !value)) throw new Error('Enter each required API key.');
+      const config = await window.companion.saveCredentials(changes, persist);
+      applyCredentialStatus(config); setSettings(s => ({ ...s, rememberKey: config.settings.rememberKey }));
+      setKeyInput(''); setDeepgramKeyInput(''); setClearKey(false); setClearDeepgramKey(false);
+      const continuation = keyContinuation.current; closeKeyPrompt();
+      setNotice(persist ? 'API keys saved with system protection.' : 'API keys available for this launch only.');
+      continuation?.();
+    } catch (e) { setKeyPromptError(errText(e)); } finally { setKeysBusy(false); }
+  }
 
   function nextMoment() {
     const index = demoRef.current;
@@ -156,12 +187,14 @@ export default function App() {
       await stopCapture('paused'); setError(errText(e));
     }
   }
-  function start() {
+  async function start() {
     setView('workspace'); setError('');
     if (mode === 'demo') { stateRef.current = 'listening'; setState('listening'); if (!demoRef.current) nextMoment(); }
-    else if (!hasKey) { setView('settings'); setError('Add your OpenAI API key, save settings, then start a live session.'); }
-    else if (settings.transcriptionProvider === 'deepgram' && !hasDeepgramKey) { setView('settings'); setError('Add your Deepgram API key and save settings to recognize speakers.'); }
-    else { setConsent(false); setConsentOpen(true); }
+    else {
+      const continueStart = () => { setConsent(false); setConsentOpen(true); };
+      try { if (await requireKeys(settings.transcriptionProvider === 'deepgram' ? ['openai', 'deepgram'] : ['openai'], continueStart)) continueStart(); }
+      catch (e) { setError(errText(e)); }
+    }
   }
   async function reset() {
     epoch.current++; await stopCapture('idle'); demoRef.current = 0; setDemoCount(0); setElapsed(0); setLines([]); setInsights([]);
@@ -178,13 +211,14 @@ export default function App() {
     setSaveBusy(true); setError('');
     try {
       await window.companion.saveSettings(settings, clearKey ? '' : keyInput || undefined, clearDeepgramKey ? '' : deepgramKeyInput || undefined);
-      const result = await window.companion.loadSettings(); setHasKey(result.hasKey); setHasDeepgramKey(result.hasDeepgramKey); setSettings(result.settings);
+      const result = await window.companion.loadSettings(); applyCredentialStatus(result); setSettings(result.settings);
       setKeyInput(''); setClearKey(false); setDeepgramKeyInput(''); setClearDeepgramKey(false); setNotice('Settings saved.');
     } catch (e) { setError(errText(e)); } finally { setSaveBusy(false); }
   }
   async function research(card: Insight) {
     if (researchBusy) return;
     if (mode === 'demo') { setExpanded(card.id); setNotice('Demo reference is provided below. No live fact check was performed.'); return; }
+    try { if (!await requireKeys(['openai'], () => { void research(card); })) return; } catch (e) { setError(errText(e)); return; }
     setResearchBusy(card.id); const current = epoch.current;
     try {
       const result = await window.companion.research(card.body);
@@ -195,6 +229,7 @@ export default function App() {
   }
   async function generateSummary() {
     if (mode === 'demo') { setArtifact(demoArtifact(demoCount)); return; }
+    try { if (!await requireKeys(['openai'], () => { void generateSummary(); })) return; } catch (e) { setError(errText(e)); return; }
     setSummaryBusy(true); const current = epoch.current, revision = transcriptRevision.current;
     try { const result = await window.companion.summarize(namedTranscript(lines, profiles), prep); if (current === epoch.current && revision === transcriptRevision.current) setArtifact(result); else setNotice('The conversation changed while the recap was generated. Generate it again to include the latest discussion.'); }
     catch (e) { setError(errText(e)); } finally { setSummaryBusy(false); }
@@ -267,7 +302,7 @@ export default function App() {
       <div className="sidebar-session"><span className="nav-label">THIS SESSION</span><div className="session-name"><span className="tiny-dot"/>{prep.title}</div><span className="subtle">{mode === 'demo' ? 'Technical meeting demo' : 'Private personal session'}</span></div>
       <div className="sidebar-bottom"><div className="privacy-note"><ShieldCheck size={22}/><strong>Your conversation.<br/>Your control.</strong><p>Audio is never saved by this app. You choose what to export.</p></div>
         <button className={'nav-item ' + (view === 'settings' ? 'selected' : '')} onClick={() => setView('settings')}><Settings2 size={18}/>Settings<span className={'key-dot ' + (hasKey ? 'ready' : '')}/></button>
-        <div className="profile"><div className="avatar">Y</div><div><strong>Personal workspace</strong><small>Desktop preview · v0.3</small></div></div>
+        <div className="profile"><div className="avatar">Y</div><div><strong>Personal workspace</strong><small>Desktop preview · v0.4</small></div></div>
       </div>
     </aside>
     <main>
@@ -376,11 +411,22 @@ export default function App() {
           <div className="two-fields"><label>Insight model<input disabled={active} value={settings.model} onChange={e => setSettings(s => ({ ...s, model: e.target.value }))}/></label>{settings.transcriptionProvider === 'openai' && <label>Transcription model<input disabled={active} value={settings.transcriptionModel} onChange={e => setSettings(s => ({ ...s, transcriptionModel: e.target.value }))}/></label>}</div>
           <label>Minimum time between insight requests<select disabled={active} value={settings.insightInterval} onChange={e => setSettings(s => ({ ...s, insightInterval: Number(e.target.value) }))}><option value={2000}>2 seconds · more responsive, more requests</option><option value={4000}>4 seconds · balanced</option><option value={8000}>8 seconds · fewer requests</option></select></label>
           <label className="toggle-row"><span><strong>Quiet mode</strong><small>Keep answers, solutions, high-priority and pinned cards visible.</small></span><input aria-label="Quiet mode setting" type="checkbox" role="switch" checked={settings.quiet} onChange={e => setSettings(s => ({ ...s, quiet: e.target.checked }))}/></label>
-          <label className="toggle-row"><span><strong>Remember API keys on this computer</strong><small>Encrypt with Windows-backed storage. Off means this app session only.</small></span><input disabled={active} type="checkbox" role="switch" checked={settings.rememberKey} onChange={e => setSettings(s => ({ ...s, rememberKey: e.target.checked }))}/></label>
-          </section><div className="settings-save"><span>{active ? 'Pause or end capture to save settings.' : 'Settings persist. Meeting content does not.'}</span><button className="button primary" disabled={saveBusy || active} onClick={saveSettings}>{saveBusy ? <LoaderCircle className="spin" size={16}/> : <Check size={16}/>}Save settings</button></div>
+          <label className="toggle-row"><span><strong>Remember API keys on this computer</strong><small>{credentialStatus.secureStorage ? credentialStatus.protection + '. Restore saved keys on future launches.' : 'Protected storage unavailable. Keys can be used for this launch only.'}</small></span><input disabled={active || !credentialStatus.secureStorage} aria-label="Remember API keys on this computer" type="checkbox" role="switch" checked={settings.rememberKey} onChange={e => setSettings(s => ({ ...s, rememberKey: e.target.checked }))}/></label>
+          {credentialStatus.warning && <p className="credential-warning">{credentialStatus.warning}</p>}<p className="credential-status">{hasKey ? (credentialStatus.saved.openai ? 'OpenAI key saved securely. ' : 'OpenAI key is for this launch only. ') : ''}{hasDeepgramKey ? (credentialStatus.saved.deepgram ? 'Deepgram key saved securely.' : 'Deepgram key is for this launch only.') : ''}</p></section><div className="settings-save"><span>{active ? 'Pause or end capture to save settings.' : 'Settings persist. Meeting content does not.'}</span><button className="button primary" disabled={saveBusy || active} onClick={saveSettings}>{saveBusy ? <LoaderCircle className="spin" size={16}/> : <Check size={16}/>}Save settings</button></div>
         </div><aside><section className="panel guidance-card privacy-card"><ShieldCheck size={29}/><h2>Privacy, by default</h2><ul><li><Check size={15}/>No saved raw audio files</li><li><Check size={15}/>Transcript held in memory</li><li><Check size={15}/>Explicit start and consent</li><li><Check size={15}/>Pause releases audio devices</li><li><Check size={15}/>Exports only when you ask</li></ul><p>With speaker separation, live audio goes to Deepgram. With OpenAI transcription, audio goes to OpenAI. OpenAI receives transcript context, preparation, recap requests, and claims you choose to check.</p><p>Cloud retention follows your provider account’s policies. “Nothing saved” describes this app, not provider-side retention.</p><button className="source-link" onClick={() => window.companion.openSource('https://platform.openai.com/docs/guides/your-data').catch(e => setError(errText(e)))}>OpenAI data controls<ExternalLink size={13}/></button><button className="source-link" onClick={() => window.companion.openSource('https://deepgram.com/privacy').catch(e => setError(errText(e)))}>Deepgram privacy<ExternalLink size={13}/></button></section><div className="prep-note"><FlaskConical size={18}/><p>Demo mode never opens an audio device or calls an AI provider.</p></div></aside></div>}
       </div>
     </main>
+    {keyPrompt && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="keys-title"><button disabled={keysBusy} className="modal-close icon-button" aria-label="Close API key prompt" onClick={closeKeyPrompt}><X size={20}/></button><div className="modal-icon"><LockKeyhole size={28}/></div><h2 id="keys-title">Add required API keys</h2><p>{keyPrompt.includes('openai') ? 'OpenAI needs your API key for insights, answers, and recaps. ' : ''}{keyPrompt.includes('deepgram') ? 'Deepgram needs its own key to separate speakers. ' : ''}Each provider bills its own usage. Adding keys does not start recording.</p>
+      <form onSubmit={e => { e.preventDefault(); void savePromptKeys(credentialStatus.secureStorage); }}>
+        {keyPrompt.map(provider => <label key={provider}>{provider === 'openai' ? 'OpenAI API key' : 'Deepgram API key'}<input type="password" autoComplete="off" spellCheck={false} autoCapitalize="none" maxLength={1000} disabled={keysBusy} required value={promptKeys[provider]} onChange={e => setPromptKeys(values => ({ ...values, [provider]: e.target.value }))}/></label>)}
+        <div className="inline-note"><ShieldCheck size={17}/><span>{credentialStatus.secureStorage ? `${credentialStatus.protection}. Keys are encrypted in your private application data, outside the project, and restored on later launches.` : 'Protected storage is unavailable. You can use keys for this launch only; they will not be saved.'}</span></div>
+        {credentialStatus.warning && <p className="credential-warning">{credentialStatus.warning}</p>}
+        {keyPromptError && <p className="credential-error" role="alert">{keyPromptError}</p>}
+        <button className="button primary key-submit" type="submit" disabled={keysBusy}>{keysBusy ? <LoaderCircle className="spin" size={16}/> : <LockKeyhole size={16}/>} {credentialStatus.secureStorage ? 'Save securely and continue' : 'Use for this launch only'}</button>
+        {credentialStatus.secureStorage && <button disabled={keysBusy} type="button" className="text-button" onClick={() => void savePromptKeys(false)}>Use for this launch only</button>}
+        {(credentialStatus.saved.openai || credentialStatus.saved.deepgram) && <small className="consent-footnote">Choosing session-only use removes saved copies of both API keys.</small>}
+        <button disabled={keysBusy} type="button" className="text-button" onClick={closeKeyPrompt}>Cancel</button>
+      </form></section></div>}
     {consentOpen && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="consent-title"><button className="modal-close icon-button" aria-label="Close consent dialog" onClick={() => setConsentOpen(false)}><X size={20}/></button><div className="modal-icon"><Mic size={28}/></div><div className="eyebrow">YOU ARE IN CONTROL</div><h2 id="consent-title">Before we listen.</h2><p>Make sure everyone participating knows about the capture and AI processing, and that you have the permissions needed for this meeting.</p><div className="consent-facts"><div><Mic size={18}/><span><strong>Audio source</strong>{sourceLabel}</span></div><div><Sparkles size={18}/><span><strong>Processing destination</strong>{settings.transcriptionProvider === 'deepgram' ? 'Deepgram: audio and speaker separation. OpenAI: transcript context and meeting prep.' : 'OpenAI: audio, transcript context and meeting prep.'}</span></div><div><LockKeyhole size={18}/><span><strong>Local retention</strong>No raw audio saved. Transcript in memory until export.</span></div></div>{settings.source !== 'microphone' && <div className="inline-note"><TriangleAlert size={17}/><span>System audio includes all apps playing through the default Windows output. Video is discarded locally and never sent.</span></div>}<label className="consent-checkbox"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}/><span>I have informed participants and obtained the consent and permissions needed for capture and cloud processing.</span></label><small className="consent-footnote">This acknowledgment does not notify participants or independently verify their consent. Pause stops capture and discards any unfinished speech segment.</small><button className="button primary" disabled={!consent} onClick={startLive}><Mic size={16}/>Start listening</button><button className="text-button" onClick={() => setConsentOpen(false)}>Keep audio off</button></section></div>}
     {resetOpen && <div className="modal-backdrop"><section className="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="reset-title"><h2 id="reset-title">Start a fresh session?</h2><p>This clears the current in-memory transcript, insights, and recap. Export anything you want to keep first.</p><div className="modal-actions"><button className="button" onClick={() => setResetOpen(false)}>Keep session</button><button className="button" onClick={exportSession}><Download size={15}/>Export first</button><button className="button primary" onClick={reset}>New session</button></div></section></div>}
   </div>;

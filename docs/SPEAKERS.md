@@ -17,7 +17,7 @@ Diarization is approximate. Short replies, noise, similar voices, and overlappin
 - Deepgram Nova-3 receives continuous mono PCM16 audio at 24 kHz, including silence, and returns word-level timestamps and speaker IDs. Streaming diarization uses `diarize_model=latest` and provider endpointing. This continuous path may cost more than the former speech-only path.
 - OpenAI receives recent finalized transcript, names/self marker, and meeting prep for insights; the full finalized transcript for recap; and claims you explicitly choose to check for source research.
 - OpenAI-only transcription is still available and labels all speech **Meeting audio**. It uses the existing client speech segmentation. It provides no acoustic speaker separation.
-- Both keys remain in Electron's main process. Session-only storage is the default. **Remember API keys** encrypts each key separately with Windows-backed storage. Renderer settings responses contain only presence flags.
+- Both keys remain in Electron's main process. OS-protected encrypted storage is the default, with keys restored across launches. Missing keys trigger an entry prompt. **Remember API keys** controls persistence; session-only use is an explicit alternative. See [credential security](CREDENTIALS.md). Renderer settings responses contain only presence flags.
 - Neither raw audio nor voice references are saved by app code. Provider retention follows the respective provider/account terms. Consent details show the selected destinations before capture starts.
 
 ## Implementation
